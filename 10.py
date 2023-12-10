@@ -69,4 +69,90 @@ def bfs(graph, start_node):
 
     return distance_from_start
 
-print('Part 1: ', max(bfs(graph, start_node).values())) # 6778
+distance_from_start = bfs(graph, start_node)
+print('Part 1: ', max(distance_from_start.values())) # 6778
+
+# Part 2
+
+# Clean up pipes that are not part of the loop
+for node in graph:
+    tile = tiles[node.i][node.j]
+    if distance_from_start[node] == -1 and tile != '.':
+        tiles[node.i][node.j] = '.' # Turn them into ground
+        # Don't bother editing the adjacency list since we won't use it anymore
+
+# Need to turn start_node 'S' into a pipe for the next step
+for pipe, edges in pipe_edges.items():
+    if all([
+        Node(neighbor.i - start_node.i, neighbor.j - start_node.j) in edges
+        for neighbor in graph[start_node]
+    ]):
+        tiles[start_node.i][start_node.j] = pipe
+
+# Stretch the graph in both dimensions, which will create gaps between parallel pipes.
+# Set those new tile gaps as a single space character: ' '
+stretched_tiles = []
+for row in tiles:
+    stretched_row = []
+    next_row = []
+    for tile in row:
+        stretched_row.append(tile)
+
+        # Stretch pipes vertically
+        if tile in ['|', '7', 'F']:
+            next_row.append('|')
+        else:
+            next_row.append(' ')
+
+        # Stretch pipes horizontally
+        if tile in ['-', 'L', 'F']:
+            stretched_row.append('-')
+            next_row.append(' ')
+        else:
+            stretched_row.append(' ')
+            next_row.append(' ')
+
+    stretched_tiles.append(stretched_row)
+    stretched_tiles.append(next_row)
+
+rows = len(stretched_tiles)
+cols = len(stretched_tiles[0])
+
+# BFS from Node(0,0) to find all '.' or ' ' tiles reachable from the outside
+# Don't bother creating adjacency list, just traverse across ' ' or '.' on stretched_tiles
+
+next_nodes = deque([Node(0, 0)])
+while next_nodes:
+    node = next_nodes.popleft()
+    i, j = node
+    # Visited tiles are marked with 'x'
+    if stretched_tiles[i][j] == 'x':
+        continue
+
+    possible_neighbors = [
+        Node(i, j-1),
+        Node(i, j+1),
+        Node(i-1, j),
+        Node(i+1, j),
+    ]
+    valid_neighbors = []
+    for neighbor in possible_neighbors:
+        if (
+            0 <= neighbor.i < rows
+            and 0 <= neighbor.j < cols
+            and stretched_tiles[neighbor.i][neighbor.j] in [' ', '.']
+        ):
+            valid_neighbors.append(neighbor)
+
+    stretched_tiles[i][j] = 'x' # Mark as visited
+    next_nodes.extend(valid_neighbors)
+
+# Then count the remaining '.' ground tiles that were not visited, those are the enclosed tiles
+
+untouched_ground_count = 0
+for row in stretched_tiles:
+    for tile in row:
+        if tile == '.':
+            untouched_ground_count += 1
+
+print('Part 2: ', untouched_ground_count) # 433
