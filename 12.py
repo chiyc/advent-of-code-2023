@@ -23,44 +23,44 @@ def is_valid_record(record):
     pattern = re.compile(f'\.*{damaged_groups_raw_regex}\.*')
     return pattern.match(springs)
 
-
 def generate_replacement_possibilities(missing_count):
-    possibilities = [''] * 2 ** missing_count
     piece_map = {0: '.', 1: '#'}
-    for _i in range(0, missing_count):
-        i = 2 ** _i
-        for n, _ in enumerate(possibilities):
+    for n in range(2 ** missing_count):
+        possibility = ''
+        for _i in range(0, missing_count):
+            i = 2 ** _i
             piece = piece_map[(n // i) % 2]
-            possibilities[n] += piece
-    return possibilities
+            possibility += piece
+        yield possibility
 
 def generate_record_possibilities(record):
-    record_possibilities = []
-
     springs, damaged_groups = record
     total_damaged_springs = sum(damaged_groups)
 
     missing = springs.count('?')
-    replacements = generate_replacement_possibilities(missing)
-
-    for replacement in replacements:
+    for replacement in generate_replacement_possibilities(missing):
         record_possibility = springs
-
         for piece in replacement:
             record_possibility = record_possibility.replace('?', piece, 1)
-
         if record_possibility.count('#') == total_damaged_springs:
-            record_possibilities.append(Record(record_possibility, record.damaged_groups))
+            yield Record(record_possibility, record.damaged_groups)
 
-    return record_possibilities
+def unfold_record(record):
+    springs, damaged_groups = record
+    unfolded_springs = '?'.join([springs] * 5)
+    unfolded_groups = damaged_groups * 5
+    return Record(unfolded_springs, unfolded_groups)
 
-def count_valid_arrangements(records):
+def count_valid_arrangements(records, unfold=False):
     valid_arrangements = 0
-    for record in records:
-        possibilities = generate_record_possibilities(record)
-        for possibility in possibilities:
+    for i, record in enumerate(records):
+        if unfold:
+            record = unfold_record(record)
+        for possibility in generate_record_possibilities(record):
             if is_valid_record(possibility):
                 valid_arrangements += 1
+        # print(f'Record {i}: {valid_arrangements} cumulative valid arrangements')
     return valid_arrangements
 
-print('Part 1: ', count_valid_arrangements(records)) # 7118
+print('Part 1: ', count_valid_arrangements(records, unfold=False)) # 7118
+print('Part 2: ', count_valid_arrangements(records, unfold=True)) #
