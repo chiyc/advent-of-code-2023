@@ -47,7 +47,11 @@ assert not find_next_match('##?#', 3)
 assert not find_next_match('#?##', 3)
 assert not find_next_match('#??#', 3)
 
+memo = {}
 def count_record_possibilities(record):
+    memo_record = Record(record.springs, tuple(record.damaged_groups))
+    if memo_record in memo:
+        return memo[memo_record]
     remaining_springs, damaged_groups = record
 
     remaining_groups = damaged_groups.copy()
@@ -75,7 +79,7 @@ def count_record_possibilities(record):
             group_match = find_next_match(remaining_springs, current_group)
             if group_match is None:
                 more_matches = False
-
+    memo[memo_record] = possibilities
     return possibilities
 
 def count_valid_arrangements(records, unfold=False):
@@ -84,17 +88,11 @@ def count_valid_arrangements(records, unfold=False):
         possibilities = count_record_possibilities(record)
         # print(f'Record {i}: {record.springs} - {record.damaged_groups} - {possibilities} arrangements')
         if unfold:
-            # Still trying to extrapolate the result somehow, but it's not clear it's possible
-            # Trying to count possibilities over the entire 5x unfolded record is too slow
-            unfolded_2_possibilities = count_record_possibilities(unfold_record(record, 2))
-            factor_2 = (unfolded_2_possibilities // possibilities)
-
-            unfolded_3_possibilities = count_record_possibilities(unfold_record(record, 3))
-            factor_3 = (unfolded_3_possibilities // unfolded_2_possibilities)
-            if factor_2 != factor_3:
-                print(f'  Record {i} has different factors {possibilities} * {factor_2} * {factor_3}')
-            possibilities = possibilities * (unfolded_2_possibilities // possibilities) ** 4
-
+            possibilities = count_record_possibilities(unfold_record(record, 1))
+            possibilities = count_record_possibilities(unfold_record(record, 2))
+            possibilities = count_record_possibilities(unfold_record(record, 3))
+            possibilities = count_record_possibilities(unfold_record(record, 4))
+            possibilities = count_record_possibilities(unfold_record(record, 5))
         valid_arrangements += possibilities
     return valid_arrangements
 
@@ -109,22 +107,4 @@ sample_records = [                          #                        L  R    x2
 ] # 24 total for part 1
 
 print('Part 1: ', count_valid_arrangements(records, unfold=False)) # 7118
-
-
-""" unfold left              unfold right
-       ?.??#??     ?.??#?   ??.??#?            ?.??#???.??#?
-                                                   # ## # ##  <-- How to extrapolate this case??
-       #..##..     #..##.   #...##.            #..##.#...##.
-                                               #..##.#....##
-       #...##.     #...##   .#..##.            #..##..#..##.
-       ..#.##.     ..#.##   #....##            #..##..#...##
-                            .#...##            #..##....#.##
-                            ...#.##            #...##.#..##.
-                                               #...##.#...##
-                                               #...##...#.##
-                                               ..#.##.#..##.
-                                               ..#.##.#...##
-                                               ..#.##...#.##
-"""
-
-print('Part 2: ', count_valid_arrangements(records, unfold=True)) # 316598322037 and 3654616696452 is too low
+print('Part 2: ', count_valid_arrangements(records, unfold=True))  # 7030194981795
