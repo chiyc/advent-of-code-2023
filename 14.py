@@ -55,49 +55,27 @@ def print_platform(platform):
 
 print('Part 1: ', calculate_load(tilt_north_or_south(platform, north=True))) # 110677
 
-# In Part 2, we need to find how the load values repeat to extrapolate the
-# pattern to 1 billion cycles
+def find_nth_cycle_load(platform, total_cycles):
+    platform_cycles = [None] # Pad to 1-index cycles
+    platform_cycles_map = {}
 
-# Possible dynamic programming solution?
-# Need to somehow compare the longest repeated sequence seen so far
-# Two pointers?
+    cycled_platform = platform
+    for i in range(total_cycles):
+        cycle = i + 1
 
-# cycled_platform = platform
-# cycled_loads = []
-# repeating_cycles = []
-# for j in range(300):
-#     cycled_platform = cycle_platform(cycled_platform)
-#     load = calculate_load(cycled_platform)
-#     cycled_loads.append(load)
-#     repeating_cycles.append([0])
-#     if j > 0:
-#         for i in range(j+1):
+        cycled_platform = cycle_platform(cycled_platform)
+        platform_key = ''.join([''.join(row) for row in cycled_platform])
 
-# Working it out by manually observing and narrowing the behavior instead
-
-load_cycles = {}
-cycled_platform = platform
-for i in range(1_000_000_000):
-    cycled_platform = cycle_platform(cycled_platform)
-    load = calculate_load(cycled_platform)
-
-    if load not in load_cycles:
-        load_cycles[load] = []
-
-    elif len(load_cycles[load]) == 5:
-        # Looks like cycle loads repeat themselves roughly by this point
-        if (load_cycles[load][4] - load_cycles[load][3] == load_cycles[load][3] - load_cycles[load][2]):
-            repeating_load_cycles = {load: cycles for load, cycles in load_cycles.items() if len(cycles) > 3}
-
-            cycle_start = min(cycles[0] for cycles in repeating_load_cycles.values())
-            cycle_end = max(cycles[0] for cycles in repeating_load_cycles.values())
-
-            cycle_length = cycle_end - cycle_start + 1
-            cycles_until_last = 1_000_000_000 - cycle_start
+        if platform_key in platform_cycles_map:
+            first_seen_cycle = platform_cycles_map[platform_key]
+            cycle_length = cycle - first_seen_cycle
+            cycles_until_last = total_cycles - first_seen_cycle
             relative_repeated_position = cycles_until_last % cycle_length
-            repeated_cycle = cycle_start + relative_repeated_position
-            print('Part 2: ', [load for load, cycles in repeating_load_cycles.items() if repeated_cycle in cycles][0]) # 90551
-            break
+            repeated_cycle = first_seen_cycle + relative_repeated_position
+            return calculate_load(platform_cycles[repeated_cycle])
 
-    cycle = i+1
-    load_cycles[load].append(cycle)
+        else:
+            platform_cycles.append(cycled_platform)
+            platform_cycles_map[platform_key] = cycle
+
+print('Part 2: ', find_nth_cycle_load(platform, 1_000_000_000)) # 90551
