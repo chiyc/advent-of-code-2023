@@ -156,3 +156,37 @@ for row in stretched_tiles:
             untouched_ground_count += 1
 
 print('Part 2: ', untouched_ground_count) # 433
+
+
+# Trying Mav's crossing method
+
+def is_inside(tiles, node):
+    crossings = 0
+    ni, nj = node
+    last_bend = None
+    # Hop east from the current tile and count full pipe crossings
+    for j in range(nj, len(tiles[0])):
+        tile = tiles[ni][j]
+        if tile == '|':
+            crossings += 1
+
+        elif tile in ['F', 'L']:
+            last_bend = tile
+
+        elif tile in ['J', '7']:
+            # Count as a crossing depending on what sort of bend last seen
+            crossings += {
+                'F': {'J': 1, '7': 0},
+                'L': {'J': 0, '7': 1},
+            }[last_bend][tile]
+            last_bend = None
+    # Odd number of crossings means we were inside the loop
+    return crossings % 2 == 1
+
+inside_count = 0
+for i, row in enumerate(tiles):
+    for j, tile in enumerate(row):
+        if tile == '.' and is_inside(tiles, Node(i, j)):
+            inside_count += 1
+
+print('Part 2: ', inside_count)
