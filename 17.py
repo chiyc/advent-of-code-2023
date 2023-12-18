@@ -21,7 +21,29 @@ path_direction = {vector: direction for direction, vector in path_vector.items()
 def add(a, b):
     return Pos(a.i + b.i, a.j + b.j)
 
-def step_path(path):
+def count_straight_steps(path):
+    assert path.prev
+
+    i1, j1 = path.pos
+    i0, j0 = path.prev[-1]
+    forward_vector = Pos(i1 - i0, j1 - j0)
+
+    prev_vector = forward_vector
+    straight_steps = 0
+    while prev_vector == forward_vector:
+        straight_steps += 1
+        if straight_steps == len(path.prev):
+            return straight_steps
+
+        i1, j1 = i0, j0
+        i0, j0 = path.prev[-(straight_steps + 1)]
+        prev_vector = Pos(i1 - i0, j1 - j0)
+
+    return straight_steps
+
+print(count_straight_steps(Path(Pos(0, 4), 0, [Pos(1, 2), Pos(0, 2), Pos(0, 3)])))
+
+def step_path(path, min_straight_steps=1, max_straight_steps=3):
     next_positions = [
         add(path.pos, path_vector['^']),
         add(path.pos, path_vector['v']),
@@ -33,11 +55,23 @@ def step_path(path):
         # Can't go backwards
         next_positions.remove(path.prev[-1])
 
-    if len(path.prev) >= 3:
+    if min_straight_steps > 1:
+        straight_steps = count_straight_steps(path)
+        if straight_steps < min_straight_steps:
+            # Can only go forwards right now
+            i, j = path.pos
+            i_m1, j_m1 = path.prev[-1]
+            forward_vector = Pos(i - i_m1, j - j_m1)
+            return [
+                add(path.pos, forward_vector)
+            ]
+
+
+    if len(path.prev) >= max_straight_steps:
         # Remove the path going to the fourth consecutive straight line
         i, j = path.pos
-        i_m3, j_m3 = path.prev[-3]
-        if abs(i - i_m3) == 3 or abs(j - j_m3) == 3:
+        i_m, j_m = path.prev[-max_straight_steps]
+        if abs(i - i_m) == max_straight_steps or abs(j - j_m) == max_straight_steps:
             i_m1, j_m1 = path.prev[-1]
             forward_vector = Pos(i - i_m1, j - j_m1)
             forward_pos = add(path.pos, forward_vector)
@@ -45,15 +79,17 @@ def step_path(path):
 
     return next_positions
 
-def find_minimum_heat_path(grid):
+def find_minimum_heat_path(grid, min_straight_steps=1, max_straight_steps=3):
     # Kind of cheat at shrinking the input by filling out the center area that contains 9s.
     # Below, we terminate the path when we hit a 9 because the optimal path goes
     # around that area.
-    for i, row in enumerate(grid):
-        if 9 in row:
-            first_9 = row.index(9)
-            last_9_exclusive = len(row) - list(reversed(row)).index(9)
-            row[first_9 : last_9_exclusive] = [9] * (last_9_exclusive - first_9)
+    # This was okay for part 1, but will probably not be valid for part 2
+
+    # for i, row in enumerate(grid):
+    #     if 9 in row:
+    #         first_9 = row.index(9)
+    #         last_9_exclusive = len(row) - list(reversed(row)).index(9)
+    #         row[first_9 : last_9_exclusive] = [9] * (last_9_exclusive - first_9)
 
     rows = len(grid)
     cols = len(grid[0])
@@ -70,7 +106,10 @@ def find_minimum_heat_path(grid):
     final_minimum_heat = None
 
     starting_point = Path(Pos(0,0), 0, [])
-    active_paths = deque([Path(position, 0, [starting_point.pos]) for position in step_path(starting_point)])
+    active_paths = deque([
+        Path(position, 0, [starting_point.pos])
+        for position in step_path(starting_point)
+    ])
     while active_paths:
         path = active_paths.popleft()
         i, j = path.pos
@@ -83,9 +122,14 @@ def find_minimum_heat_path(grid):
             # a more direct path exists
             continue
 
-        # The optimal path won't go through a 9
-        if grid[i][j] >= 9:
-            continue
+        # The optimal path won't go through a 9 (in part 1)
+        # if grid[i][j] >= 9:
+        #     continue
+
+        if path.pos == Pos(rows - 1, cols - 1):
+            straight_steps = count_straight_steps(path)
+            if straight_steps < min_straight_steps:
+                continue
 
         # Accumulated heat loss so far
         path_heat = path.heat + grid[i][j]
@@ -100,21 +144,9 @@ def find_minimum_heat_path(grid):
             # heat at a given position. It must also be compared against heat loss values from
             # paths that arrived at the position the same way. The way a path arrived is based
             # on incoming direction and consecutive straight steps taken.
-            straight_steps = 1
             m1 = path.prev[-1]
-            delta_m1 = Pos(i - m1.i, j - m1.j)
-
-            m2 = path.prev[-2]
-            delta_m2 = Pos(m1.i - m2.i, m1.j - m2.j)
-            if delta_m2 == delta_m1:
-                straight_steps += 1
-
-            m3 = path.prev[-3]
-            delta_m3 = Pos(m2.i - m3.i, m2.j - m3.j)
-            if delta_m3 == delta_m2 and delta_m2 == delta_m1:
-                straight_steps += 1
-
-            heat_key = (delta_m1, straight_steps)
+            forward_vector = Pos(i - m1.i, j - m1.j)
+            heat_key = (forward_vector, count_straight_steps(path))
 
             if heat_key not in minimum_heat[i][j] or path_heat < minimum_heat[i][j][heat_key]:
                 minimum_heat[i][j][heat_key] = path_heat
@@ -134,7 +166,7 @@ def find_minimum_heat_path(grid):
 
         next_paths = [
             Path(next_pos, path_heat, path_prev)
-            for next_pos in step_path(path)
+            for next_pos in step_path(path, min_straight_steps, max_straight_steps)
         ]
         active_paths.extend(next_paths)
 
@@ -146,7 +178,6 @@ def print_grid(grid, final_path):
     print('=====')
     print(f'{len(final_path)} steps')
     print('=====')
-    # print(final_path)
 
     path_to_print = []
     for step in range(1, len(final_path)):
@@ -164,6 +195,9 @@ def print_grid(grid, final_path):
         print(''.join([str(tile) for tile in row]))
     print('=====')
 
-minimum_heat, minimum_heat_path = find_minimum_heat_path(grid)
-print('Part 1: ', minimum_heat) # 1076, takes just over 5 minutes to run
+minimum_heat, minimum_heat_path = find_minimum_heat_path(grid, min_straight_steps=1, max_straight_steps=3)
+print('Part 1: ', minimum_heat) # 1076, takes just over 5 minutes to run when hacking the input. 10 minutes otherwise
+
+minimum_heat, minimum_heat_path = find_minimum_heat_path(grid, min_straight_steps=4, max_straight_steps=10)
+print('Part 2: ', minimum_heat) # 1219, takes just over 22 minutes to run
 # print_grid(grid, minimum_heat_path)
