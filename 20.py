@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from collections import deque, namedtuple
+from math import lcm
 from typing import Mapping
+
 from input import read_input
 
 
@@ -147,16 +149,20 @@ class Modules():
 
         return Modules(modules)
 
-    def press_button(self):
+    def press_button(self, pulse_to_record=None):
+        pulse_to_record_count = 0
         self.pulses.append(Pulse('button', 'broadcaster', 0))
         while self.pulses:
             pulse = self.pulses.popleft()
             if pulse.destination not in self.modules:
                 self.modules[pulse.destination] = TestModule(pulse.destination)
             self.sent_pulses[pulse.type] += 1
+            if pulse == pulse_to_record:
+                pulse_to_record_count += 1
 
             next_pulses = self.modules[pulse.destination].receive(pulse)
             self.pulses.extend(next_pulses)
+        return pulse_to_record_count
 
     def reset(self):
         self.sent_pulses = {0: 0, 1: 0}
@@ -168,3 +174,21 @@ modules = Modules.build_modules(read_input(20))
 for _ in range(1000):
     modules.press_button()
 print('Day 1: ', modules.sent_pulses[0] * modules.sent_pulses[1]) # 814934624
+
+
+# Observed in input that rx has &nr as its single input. In order for nr
+# to send a low pulse, it must receive a high pulse from all of its own inputs
+
+# I did a manual test to confirm that these modules send a high pulse at a
+# regular frequency, so we can find the least common multiple for the solution
+multiples = []
+for i, module in enumerate(['lh', 'fk', 'ff', 'mm']):
+    modules.reset()
+    n = 0
+    while True:
+        n += 1
+        pulses = modules.press_button(pulse_to_record=Pulse(module, 'nr', 1))
+        if pulses:
+            multiples.append(n)
+            break
+print('Day 2: ', lcm(*multiples)) # 228282646835717
