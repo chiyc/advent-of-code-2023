@@ -173,7 +173,7 @@ class Modules():
 modules = Modules.build_modules(read_input(20))
 for _ in range(1000):
     modules.press_button()
-print('Day 1: ', modules.sent_pulses[0] * modules.sent_pulses[1]) # 814934624
+print('Part 1: ', modules.sent_pulses[0] * modules.sent_pulses[1]) # 814934624
 
 
 # Observed in input that rx has &nr as its single input. In order for nr
@@ -191,4 +191,4 @@ for i, module in enumerate(['lh', 'fk', 'ff', 'mm']):
         if pulses:
             multiples.append(n)
             break
-print('Day 2: ', lcm(*multiples)) # 228282646835717
+print('Part 2: ', lcm(*multiples)) # 228282646835717
