@@ -1,5 +1,6 @@
+from copy import deepcopy
 from collections import namedtuple
-from input import read_input, sample_input
+from input import read_input
 
 
 Pos = namedtuple('Pos', ['x', 'y', 'z'])
@@ -27,6 +28,17 @@ class Brick():
 
     def get_min_z(self):
         return min(self.end.z, self.other_end.z)
+
+    def update_min_z(self, min_z):
+        if self.is_vertical:
+            length = abs(self.other_end.z - self.end.z)
+            points_up = self.end.z < self.other_end.z
+            self.end = Pos(self.end.x, self.end.y, min_z if points_up else min_z + length)
+            self.other_end = Pos(self.other_end.x, self.other_end.y, min_z + length if points_up else min_z)
+        else:
+            self.end = Pos(self.end.x, self.end.y, min_z)
+            self.other_end = Pos(self.other_end.x, self.other_end.y, min_z)
+
 
     def xy_positions(self):
         x_start = min(self.end.x, self.other_end.x)
@@ -67,8 +79,8 @@ class XY():
                 ))
         return support_pairs
 
-    def get_highest_z(self):
-        occupied_z_levels = self.z_bricks.keys()
+    def get_highest_z_up_to(self, max_z):
+        occupied_z_levels = [z for z in self.z_bricks.keys() if z <= max_z]
         return (
             max(occupied_z_levels)
             if occupied_z_levels
@@ -78,11 +90,31 @@ class XY():
     def set_brick(self, z, brick_id):
         self.z_bricks[z] = brick_id
 
+    def delete(self, z):
+        del self.z_bricks[z]
+
 
 class World():
-    def __init__(self, bricks, xy_positions):
+    def __init__(self, bricks):
         self.bricks = sorted(bricks, key=lambda b: b.get_min_z())
-        self.xy_positions = xy_positions
+        self.xy_positions = self.fresh_xy_positions()
+
+    def fresh_xy_positions(self):
+        max_x = 0
+        max_y = 0
+        for brick in self.bricks:
+            x, y = brick.get_max_xy()
+            max_x = max(x, max_x)
+            max_y = max(y, max_y)
+
+
+        xy_positions = []
+        for x in range(max_x + 1):
+            x_positions = []
+            for y in range(max_y + 1):
+                x_positions.append(XY())
+            xy_positions.append(x_positions)
+        return xy_positions
 
     def resume_from_snapshot(self):
         for brick in self.bricks:
@@ -93,7 +125,7 @@ class World():
         for x, y in brick.xy_positions():
             supporting_z = max(
                 supporting_z,
-                self.xy_positions[x][y].get_highest_z(),
+                self.xy_positions[x][y].get_highest_z_up_to(brick.get_min_z() - 1),
             )
 
         if brick.is_vertical:
@@ -108,6 +140,8 @@ class World():
         else:
             for x, y in brick.xy_positions():
                 self.xy_positions[x][y].set_brick(supporting_z + 1, brick.id)
+
+        brick.update_min_z(supporting_z + 1)
 
     def count_redundant_bricks(self):
         supported_bricks = {}
@@ -142,25 +176,39 @@ class World():
 
         return len(redundant_bricks)
 
+    def simulate_disintegration(self, brick_index):
+        starting_bricks = deepcopy(self.bricks)
+        starting_xy_positions = deepcopy(self.xy_positions)
 
-max_x = 0
-max_y = 0
+        brick = self.bricks.pop(brick_index)
+        self.xy_positions = self.fresh_xy_positions()
+
+        cascade_count = 0
+        for brick in self.bricks:
+            starting_end = brick.end
+            self.let_fall(brick)
+            if brick.end != starting_end:
+                cascade_count += 1
+
+        self.bricks = starting_bricks
+        self.xy_positions = starting_xy_positions
+        return cascade_count
+
+
+    def count_cascading_bricks(self):
+        total_cascade_count = 0
+        for i, _brick in enumerate(self.bricks):
+            total_cascade_count += self.simulate_disintegration(i)
+        return total_cascade_count
+
+
 bricks = []
 for i, raw_input in enumerate(read_input(22)):
     brick = Brick(raw_input, i)
-    x, y = brick.get_max_xy()
-    max_x = max(x, max_x)
-    max_y = max(y, max_y)
     bricks.append(brick)
 
-xy_positions = []
-for x in range(max_x + 1):
-    x_positions = []
-    for y in range(max_y + 1):
-        x_positions.append(XY())
-    xy_positions.append(x_positions)
-
-
-world = World(bricks, xy_positions)
+world = World(bricks)
 world.resume_from_snapshot()
+
 print('Part 1: ', world.count_redundant_bricks()) # 190 is too low, 521 too high, 439 just right!
+print('Part 2: ', world.count_cascading_bricks()) # 43056
